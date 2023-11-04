@@ -10,7 +10,7 @@ static void glfw_error_callback(int error, const char* description) {
   std::cerr << "GLFW Error " << error << ": " << description << std::endl;
 }
 
-bool loadPNGImage(const char* filename, ImVec2& imageSize, ImTextureID& texture) {
+bool load_image(const char* filename, ImVec2& image_size, ImTextureID& image_texture) {
   FILE* file = fopen(filename, "rb");
   if (!file) {
     std::cerr << "Failed to open PNG file: " << filename << std::endl;
@@ -44,51 +44,60 @@ bool loadPNGImage(const char* filename, ImVec2& imageSize, ImTextureID& texture)
 
   int width = png_get_image_width(png, info);
   int height = png_get_image_height(png, info);
-  int bitDepth = png_get_bit_depth(png, info);
-  int colorType = png_get_color_type(png, info);
+  int bit_depth = png_get_bit_depth(png, info);
+  int color_type = png_get_color_type(png, info);
+
+  size_t row_bytes = png_get_rowbytes(png, info);
+  png_bytep* row_pointers = nullptr;
+  png_byte* image_data = nullptr;
 
   // Handle different color types
-  if (colorType == PNG_COLOR_TYPE_RGB) {
-    // RGB image
-    // You can add code to display the image here
-    // Create a buffer to hold the image data
-    size_t row_bytes = png_get_rowbytes(png, info);
-    png_bytep* row_pointers = new png_bytep[height];
-    for (int i = 0; i < height; i++) row_pointers[i] = new png_byte[row_bytes];
+  switch (color_type) {
+    case PNG_COLOR_TYPE_RGBA:
+      std::cout << "RGBA image" << std::endl;
 
-    png_read_image(png, row_pointers);
+      // Create a buffer to hold the image data
+      row_pointers = new png_bytep[height];
+      for (int i=0; i<height; i++) row_pointers[i] = new png_byte[row_bytes];
 
-    // Create an ImGui texture from the image data
-    texture = ImGui::GetIO().Fonts->TexID;
-    imageSize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+      png_read_image(png, row_pointers);
 
-    // Clean up
-    for (int i = 0; i < height; ++i) delete[] row_pointers[i];
-    delete[] row_pointers;
-  } else if (colorType == PNG_COLOR_TYPE_RGBA) {
-    // RGBA image
-    // You can add code to display the image here
-    // Create a buffer to hold the image data
-    size_t row_bytes = png_get_rowbytes(png, info);
-    png_bytep* row_pointers = new png_bytep[height];
-    for (int i = 0; i < height; i++) row_pointers[i] = new png_byte[row_bytes];
+      // Flatten the image data
+      image_data = new png_byte[width * height * 4];
+      for (int i=0; i<height; i++) {
+        for (int j=0; j<width; j++) {
+          image_data[(i * width + j) * 4 + 0] = row_pointers[i][j * 4 + 0];
+          image_data[(i * width + j) * 4 + 1] = row_pointers[i][j * 4 + 1];
+          image_data[(i * width + j) * 4 + 2] = row_pointers[i][j * 4 + 2];
+          image_data[(i * width + j) * 4 + 3] = row_pointers[i][j * 4 + 3];
+        }
+      }
 
-    png_read_image(png, row_pointers);
+      // Create an OpenGL texture from the image data
+      GLuint textureID;
+      glGenTextures(1, &textureID);
+      glBindTexture(GL_TEXTURE_2D, textureID);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      image_texture = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureID));
 
-    // Create an ImGui texture from the image data
-    texture = ImGui::GetIO().Fonts->TexID;
-    imageSize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+      // Set the image size
+      image_size = ImVec2(static_cast<float>(width), static_cast<float>(height));
 
-    // Clean up
-    for (int i = 0; i < height; ++i) delete[] row_pointers[i];
-    delete[] row_pointers;
-  } else {
-    // Unsupported color type
-    std::cerr << "Unsupported PNG color type: " << colorType << std::endl;
+      // Clean up
+      for (int i=0; i<height; i++) delete[] row_pointers[i];
+      delete[] row_pointers;
+      break;
+
+    default:
+      // Unsupported color type
+      std::cerr << "Unsupported PNG color type: " << color_type << std::endl;
+      break;
   }
 
   // Clean up
-  png_destroy_read_struct(&png, &info, NULL);
+  png_destroy_read_struct(&png, &info, nullptr);
   fclose(file);
 
   return true;
@@ -131,7 +140,7 @@ int main(int argc, char *argv[]) {
   // Initialize OpenGL loader
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cout << "Failed to initialize GLAD" << std::endl;
-    return -1;
+    return 1;
   }
 
   // Setup Dear ImGui context
@@ -157,16 +166,72 @@ int main(int argc, char *argv[]) {
   // Main loop
   while (!glfwWindowShouldClose(window)) {
     // Poll and handle events (inputs, window resize, etc.)
-    // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-    // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-    // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-    // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
     glfwPollEvents();
 
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // Variables
+    static bool png_loaded = false;
+    static ImTextureID png_texture;
+    static ImVec2 image_size;
+
+    // Main Menu
+    {
+      // Flags
+      static ImGuiWindowFlags window_flags = 0;
+      window_flags |= ImGuiWindowFlags_MenuBar;
+      window_flags |= ImGuiWindowFlags_NoCollapse;
+
+      // Start of window
+      ImGui::Begin("Main Menu", nullptr, window_flags);
+
+      // Menu bar
+      if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+          // TODO: Implement file menu
+          if (ImGui::MenuItem("Open", "Ctrl+O")) {
+            // TODO: Implement open file dialog
+            const char* filename = "../sample.png";
+
+            // Load the PNG image
+            png_loaded = load_image(filename, image_size, png_texture);
+          }
+          if (ImGui::MenuItem("Save", "Ctrl+S")) {}
+          if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
+          if (ImGui::MenuItem("Quit", "Ctrl+Q")) {}
+          ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+      }
+
+      if (!png_loaded) {
+        ImGui::Text("No PNG file loaded");
+      }
+
+      // End of window
+      ImGui::End();
+    }
+
+    // PNG Editor
+    if (png_loaded) {
+      // Flags
+      static ImGuiWindowFlags window_flags = 0;
+
+      // Set the window size to the image size
+      ImGui::SetNextWindowSize(image_size);
+
+      // Start of window
+      ImGui::Begin("PNG Editor", nullptr, window_flags);
+
+      // Display the loaded PNG image
+      ImGui::Image(png_texture, image_size);
+
+      // End of window
+      ImGui::End();
+    }
 
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
     if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
@@ -202,19 +267,6 @@ int main(int argc, char *argv[]) {
       if (ImGui::Button("Close Me"))
         show_another_window = false;
       ImGui::End();
-    }
-
-    // 4. Show a PNG image
-    {
-      static ImTextureID pngTexture;
-      static ImVec2 imageSize;
-
-      if (loadPNGImage("../sample.png", imageSize, pngTexture)) {
-        // Display the loaded PNG image within an ImGui window
-        ImGui::Begin("Image Window");
-        ImGui::Image(pngTexture, imageSize);
-        ImGui::End();
-      }
     }
 
     // Rendering
