@@ -16,15 +16,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(PhotoEditor src/main.cpp)
 
 # GLFW
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 add_subdirectory(lib/glfw)
 target_link_libraries(PhotoEditor glfw)
 
 # GLAD
+set(GLAD_PROFILE "core" CACHE STRING "" FORCE)
 add_library(glad lib/glad/src/glad.c)
 target_include_directories(glad PUBLIC lib/glad/include)
 target_link_libraries(PhotoEditor glad ${CMAKE_DL_LIBS})
 
 # Dear ImGui
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD2")
 include_directories(lib/imgui)
 include_directories(lib/imgui/backends)
 include_directories(lib/imgui/misc/cpp) # For std::string support
@@ -39,3 +44,17 @@ add_library(imgui
 )
 target_include_directories(imgui PUBLIC lib/glfw/include)
 target_link_libraries(PhotoEditor imgui ${CMAKE_DL_LIBS})
+
+# libpng
+set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lib/libpng")
+set(PNG_TESTS OFF CACHE BOOL "" FORCE)
+set(PNG_SHARED OFF CACHE BOOL "" FORCE)
+set(PNG_STATIC ON CACHE BOOL "" FORCE)
+set(PNG_DEBUG OFF CACHE BOOL "" FORCE)
+set(PNGARG OFF CACHE BOOL "" FORCE)
+add_subdirectory(lib/libpng)
+target_include_directories(PhotoEditor PUBLIC lib/libpng)
+target_include_directories(PhotoEditor PUBLIC lib/libpng/contrib/libtests)
+target_include_directories(PhotoEditor PUBLIC lib/libpng/contrib/tools)
+target_include_directories(PhotoEditor PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/lib/libpng")
+target_link_libraries(PhotoEditor png_static)

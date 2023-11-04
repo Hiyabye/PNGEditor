@@ -4,9 +4,94 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "png.h"
 
 static void glfw_error_callback(int error, const char* description) {
   std::cerr << "GLFW Error " << error << ": " << description << std::endl;
+}
+
+bool loadPNGImage(const char* filename, ImVec2& imageSize, ImTextureID& texture) {
+  FILE* file = fopen(filename, "rb");
+  if (!file) {
+    std::cerr << "Failed to open PNG file: " << filename << std::endl;
+    return false;
+  }
+
+  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+  if (!png) {
+    std::cerr << "Failed to create PNG read struct" << std::endl;
+    fclose(file);
+    return false;
+  }
+
+  png_infop info = png_create_info_struct(png);
+  if (!info) {
+    std::cerr << "Failed to create PNG info struct" << std::endl;
+    png_destroy_read_struct(&png, nullptr, nullptr);
+    fclose(file);
+    return false;
+  }
+
+  if (setjmp(png_jmpbuf(png))) {
+    std::cerr << "Failed to set PNG jump buffer" << std::endl;
+    png_destroy_read_struct(&png, &info, nullptr);
+    fclose(file);
+    return false;
+  }
+
+  png_init_io(png, file);
+  png_read_info(png, info);
+
+  int width = png_get_image_width(png, info);
+  int height = png_get_image_height(png, info);
+  int bitDepth = png_get_bit_depth(png, info);
+  int colorType = png_get_color_type(png, info);
+
+  // Handle different color types
+  if (colorType == PNG_COLOR_TYPE_RGB) {
+    // RGB image
+    // You can add code to display the image here
+    // Create a buffer to hold the image data
+    size_t row_bytes = png_get_rowbytes(png, info);
+    png_bytep* row_pointers = new png_bytep[height];
+    for (int i = 0; i < height; i++) row_pointers[i] = new png_byte[row_bytes];
+
+    png_read_image(png, row_pointers);
+
+    // Create an ImGui texture from the image data
+    texture = ImGui::GetIO().Fonts->TexID;
+    imageSize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+
+    // Clean up
+    for (int i = 0; i < height; ++i) delete[] row_pointers[i];
+    delete[] row_pointers;
+  } else if (colorType == PNG_COLOR_TYPE_RGBA) {
+    // RGBA image
+    // You can add code to display the image here
+    // Create a buffer to hold the image data
+    size_t row_bytes = png_get_rowbytes(png, info);
+    png_bytep* row_pointers = new png_bytep[height];
+    for (int i = 0; i < height; i++) row_pointers[i] = new png_byte[row_bytes];
+
+    png_read_image(png, row_pointers);
+
+    // Create an ImGui texture from the image data
+    texture = ImGui::GetIO().Fonts->TexID;
+    imageSize = ImVec2(static_cast<float>(width), static_cast<float>(height));
+
+    // Clean up
+    for (int i = 0; i < height; ++i) delete[] row_pointers[i];
+    delete[] row_pointers;
+  } else {
+    // Unsupported color type
+    std::cerr << "Unsupported PNG color type: " << colorType << std::endl;
+  }
+
+  // Clean up
+  png_destroy_read_struct(&png, &info, NULL);
+  fclose(file);
+
+  return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -117,6 +202,19 @@ int main(int argc, char *argv[]) {
       if (ImGui::Button("Close Me"))
         show_another_window = false;
       ImGui::End();
+    }
+
+    // 4. Show a PNG image
+    {
+      static ImTextureID pngTexture;
+      static ImVec2 imageSize;
+
+      if (loadPNGImage("../sample.png", imageSize, pngTexture)) {
+        // Display the loaded PNG image within an ImGui window
+        ImGui::Begin("Image Window");
+        ImGui::Image(pngTexture, imageSize);
+        ImGui::End();
+      }
     }
 
     // Rendering
