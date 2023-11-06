@@ -1,4 +1,9 @@
 #include <iostream>
+#include <vector>
+#include <fstream>
+#include <string>
+#include <cstring>
+#include <stdexcept>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "imgui.h"
@@ -6,26 +11,29 @@
 #include "imgui_impl_opengl3.h"
 #include "png.h"
 
-static void glfw_error_callback(int error, const char* description) {
-  std::cerr << "GLFW Error " << error << ": " << description << std::endl;
-}
-
-bool load_image(const char* filename, ImVec2& image_size, ImTextureID& image_texture) {
-  FILE* file = fopen(filename, "rb");
-  if (!file) {
+bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& image_texture) {
+  // Open the PNG file
+  FILE* file = nullptr;
+  try {
+    file = fopen(filename.c_str(), "rb");
+  } catch (const std::exception& e) {
     std::cerr << "Failed to open PNG file: " << filename << std::endl;
     return false;
   }
 
-  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-  if (!png) {
+  png_structp png = nullptr;
+  try {
+    png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+  } catch (const std::exception& e) {
     std::cerr << "Failed to create PNG read struct" << std::endl;
     fclose(file);
     return false;
   }
 
-  png_infop info = png_create_info_struct(png);
-  if (!info) {
+  png_infop info = nullptr;
+  try {
+    info = png_create_info_struct(png);
+  } catch (const std::exception& e) {
     std::cerr << "Failed to create PNG info struct" << std::endl;
     png_destroy_read_struct(&png, nullptr, nullptr);
     fclose(file);
@@ -47,7 +55,7 @@ bool load_image(const char* filename, ImVec2& image_size, ImTextureID& image_tex
   int bit_depth = png_get_bit_depth(png, info);
   int color_type = png_get_color_type(png, info);
 
-  size_t row_bytes = png_get_rowbytes(png, info);
+  // Read the PNG image
   png_bytep* row_pointers = nullptr;
   png_byte* image_data = nullptr;
 
@@ -58,14 +66,13 @@ bool load_image(const char* filename, ImVec2& image_size, ImTextureID& image_tex
 
       // Create a buffer to hold the image data
       row_pointers = new png_bytep[height];
-      for (int i=0; i<height; i++) row_pointers[i] = new png_byte[row_bytes];
-
+      for (int i = 0; i < height; ++i) row_pointers[i] = new png_byte[png_get_rowbytes(png, info)];
       png_read_image(png, row_pointers);
 
       // Flatten the image data
       image_data = new png_byte[width * height * 4];
-      for (int i=0; i<height; i++) {
-        for (int j=0; j<width; j++) {
+      for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
           image_data[(i * width + j) * 4 + 0] = row_pointers[i][j * 4 + 0];
           image_data[(i * width + j) * 4 + 1] = row_pointers[i][j * 4 + 1];
           image_data[(i * width + j) * 4 + 2] = row_pointers[i][j * 4 + 2];
@@ -86,8 +93,9 @@ bool load_image(const char* filename, ImVec2& image_size, ImTextureID& image_tex
       image_size = ImVec2(static_cast<float>(width), static_cast<float>(height));
 
       // Clean up
-      for (int i=0; i<height; i++) delete[] row_pointers[i];
+      for (int i = 0; i < height; ++i) delete[] row_pointers[i];
       delete[] row_pointers;
+      delete[] image_data;
       break;
 
     default:
@@ -105,8 +113,10 @@ bool load_image(const char* filename, ImVec2& image_size, ImTextureID& image_tex
 
 int main(int argc, char *argv[]) {
   // Initialize GLFW
-  glfwSetErrorCallback(glfw_error_callback);
-  if (!glfwInit()) return 1;
+  if (!glfwInit()) {
+    std::cerr << "Error: Failed to initialize GLFW" << std::endl;
+    return 1;
+  }
 
   // Decide GL+GLSL versions
 #if defined(IMGUI_IMPL_OPENGL_ES2)
@@ -133,13 +143,16 @@ int main(int argc, char *argv[]) {
 
   // Create window with graphics context
   GLFWwindow* window = glfwCreateWindow(1280, 720, "PNGEditor", nullptr, nullptr);
-  if (window == nullptr) return 1;
+  if (window == nullptr) {
+    std::cout << "Error: Failed to create GLFW window" << std::endl;
+    return 1;
+  }
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1); // Enable vsync
 
   // Initialize OpenGL loader
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-    std::cout << "Failed to initialize GLAD" << std::endl;
+    std::cout << "Error: Failed to initialize GLAD" << std::endl;
     return 1;
   }
 
@@ -147,8 +160,8 @@ int main(int argc, char *argv[]) {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO(); (void)io;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;  // Enable MousePos requests
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
@@ -194,14 +207,19 @@ int main(int argc, char *argv[]) {
           // TODO: Implement file menu
           if (ImGui::MenuItem("Open", "Ctrl+O")) {
             // TODO: Implement open file dialog
-            const char* filename = "../sample.png";
 
             // Load the PNG image
-            png_loaded = load_image(filename, image_size, png_texture);
+            png_loaded = load_image("../sphere.png", image_size, png_texture);
           }
+
           if (ImGui::MenuItem("Save", "Ctrl+S")) {}
           if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
-          if (ImGui::MenuItem("Quit", "Ctrl+Q")) {}
+          
+          ImGui::Separator();
+          if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
+            glfwSetWindowShouldClose(window, true);
+          }
+
           ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -230,42 +248,6 @@ int main(int argc, char *argv[]) {
       ImGui::Image(png_texture, image_size);
 
       // End of window
-      ImGui::End();
-    }
-
-    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-    if (show_demo_window) ImGui::ShowDemoWindow(&show_demo_window);
-
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-    {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-      ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-        counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-      ImGui::End();
-    }
-
-    // 3. Show another simple window.
-    if (show_another_window)
-    {
-      ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-        show_another_window = false;
       ImGui::End();
     }
 
