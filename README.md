@@ -38,6 +38,7 @@ make
  - [glfw](https://www.glfw.org/)
  - [libpng](http://www.libpng.org/pub/png/libpng.html)
  - [Dear ImGui](https://github.com/ocornut/imgui/blob/master/examples/example_glfw_opengl3/main.cpp)
+ - [imgui-filebrowser](https://github.com/AirGuanZ/imgui-filebrowser)
 
 ## License
 

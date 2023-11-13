@@ -41,6 +41,9 @@ target_compile_features(imgui PRIVATE cxx_std_17)
 target_include_directories(imgui PUBLIC lib/glfw/include)
 target_link_libraries(PhotoEditor imgui)
 
+# imgui-filebrowser
+include_directories(lib/imgui-filebrowser)
+
 # libpng
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/lib/libpng" CACHE PATH "Install path" FORCE)
 set(PNG_TESTS OFF CACHE BOOL "Build libpng tests" FORCE)

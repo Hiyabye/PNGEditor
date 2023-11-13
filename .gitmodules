@@ -7,3 +7,6 @@
 [submodule "lib/libpng"]
 	path = lib/libpng
 	url = https://github.com/glennrp/libpng.git
+[submodule "lib/imgui-filebrowser"]
+	path = lib/imgui-filebrowser
+	url = https://github.com/AirGuanZ/imgui-filebrowser.git
