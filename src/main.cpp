@@ -12,12 +12,14 @@
 #include "imfilebrowser.h"
 #include "png.h"
 
-bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& image_texture) {
+std::vector<png_byte> load_image(const std::string& filename, int& width, int& height, ImTextureID& image_texture) {
+  std::vector<png_byte> image_data;
+
   // Open the PNG file
   FILE* file = fopen(filename.c_str(), "rb");
   if (!file) {
     std::cerr << "Failed to open for reading: " << filename << std::endl;
-    return false;
+    return image_data;
   }
   std::unique_ptr<FILE, decltype(&fclose)> file_guard(file, fclose);
 
@@ -25,7 +27,7 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
   png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
   if (!png) {
     std::cerr << "Failed to create PNG read struct" << std::endl;
-    return false;
+    return image_data;
   }
 
   // Create a PNG info struct
@@ -33,27 +35,27 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
   if (!info) {
     std::cerr << "Failed to create PNG info struct" << std::endl;
     png_destroy_read_struct(&png, nullptr, nullptr);
-    return false;
+    return image_data;
   }
 
   // Set the PNG jump buffer
   if (setjmp(png_jmpbuf(png))) {
     std::cerr << "Failed to set PNG jump buffer" << std::endl;
     png_destroy_read_struct(&png, &info, nullptr);
-    return false;
+    return image_data;
   }
 
   png_init_io(png, file);
   png_read_info(png, info);
 
-  int width = png_get_image_width(png, info);
-  int height = png_get_image_height(png, info);
+  width = png_get_image_width(png, info);
+  height = png_get_image_height(png, info);
   int bit_depth = png_get_bit_depth(png, info);
   int color_type = png_get_color_type(png, info);
 
   // Read the PNG image
   png_bytep* row_pointers = nullptr;
-  std::vector<png_byte> image_data(width * height * 4);
+  image_data.resize(width * height * 4);
 
   // Handle different color types
   switch (color_type) {
@@ -84,9 +86,6 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       image_texture = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureID));
 
-      // Set the image size
-      image_size = ImVec2(static_cast<float>(width), static_cast<float>(height));
-
       // Clean up
       for (int i = 0; i < height; ++i) delete[] row_pointers[i];
       delete[] row_pointers;
@@ -99,7 +98,7 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
   }
   
   png_destroy_read_struct(&png, &info, nullptr);
-  return true;
+  return image_data;
 }
 
 bool save_image(const std::string& filename, const png_bytep data, const int width, const int height) {
@@ -215,6 +214,8 @@ int main(int argc, char *argv[]) {
   file_dialog.SetTypeFilters({ ".png" });
 
   // Our state
+  std::vector<png_byte> image_data;
+  int image_width = 0, image_height = 0;
   bool show_demo_window = true;
   bool show_another_window = false;
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -233,7 +234,6 @@ int main(int argc, char *argv[]) {
     static bool open_dialog = false;
     static bool png_loaded = false;
     static ImTextureID png_texture;
-    static ImVec2 image_size;
 
     // Main Menu
     {
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
           }
 
           if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            if (png_loaded) png_loaded = !save_image("../sphere2.png", nullptr, 0, 0);
+            if (png_loaded) png_loaded = !save_image("../sphere2.png", image_data.data(), image_width, image_height);
           }
 
           if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
@@ -291,7 +291,8 @@ int main(int argc, char *argv[]) {
       // If a file is selected
       if (file_dialog.HasSelected()) {
         // Load the PNG image
-        png_loaded = load_image(file_dialog.GetSelected().string(), image_size, png_texture);
+        image_data = load_image(file_dialog.GetSelected().string(), image_width, image_height, png_texture);
+        png_loaded = true;
 
         // Close the file dialog
         file_dialog.ClearSelected();
@@ -304,13 +305,13 @@ int main(int argc, char *argv[]) {
       static ImGuiWindowFlags window_flags = 0;
 
       // Set the window size to the image size
-      ImGui::SetNextWindowSize(image_size);
+      ImGui::SetNextWindowSize(ImVec2(image_width, image_height));
 
       // Start of window
       ImGui::Begin("PNG Editor", nullptr, window_flags);
 
       // Display the loaded PNG image
-      ImGui::Image(png_texture, image_size);
+      ImGui::Image(png_texture, ImVec2(image_width, image_height));
 
       // End of window
       ImGui::End();
