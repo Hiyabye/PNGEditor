@@ -3,47 +3,43 @@
 #include <fstream>
 #include <string>
 #include <cstring>
-#include <stdexcept>
+#include <memory>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "imfilebrowser.h"
 #include "png.h"
 
 bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& image_texture) {
   // Open the PNG file
-  FILE* file = nullptr;
-  try {
-    file = fopen(filename.c_str(), "rb");
-  } catch (const std::exception& e) {
-    std::cerr << "Failed to open PNG file: " << filename << std::endl;
+  FILE* file = fopen(filename.c_str(), "rb");
+  if (!file) {
+    std::cerr << "Failed to open for reading: " << filename << std::endl;
     return false;
   }
+  std::unique_ptr<FILE, decltype(&fclose)> file_guard(file, fclose);
 
-  png_structp png = nullptr;
-  try {
-    png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-  } catch (const std::exception& e) {
+  // Create a PNG read struct
+  png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+  if (!png) {
     std::cerr << "Failed to create PNG read struct" << std::endl;
-    fclose(file);
     return false;
   }
 
-  png_infop info = nullptr;
-  try {
-    info = png_create_info_struct(png);
-  } catch (const std::exception& e) {
+  // Create a PNG info struct
+  png_infop info = png_create_info_struct(png);
+  if (!info) {
     std::cerr << "Failed to create PNG info struct" << std::endl;
     png_destroy_read_struct(&png, nullptr, nullptr);
-    fclose(file);
     return false;
   }
 
+  // Set the PNG jump buffer
   if (setjmp(png_jmpbuf(png))) {
     std::cerr << "Failed to set PNG jump buffer" << std::endl;
     png_destroy_read_struct(&png, &info, nullptr);
-    fclose(file);
     return false;
   }
 
@@ -57,7 +53,7 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
 
   // Read the PNG image
   png_bytep* row_pointers = nullptr;
-  png_byte* image_data = nullptr;
+  std::vector<png_byte> image_data(width * height * 4);
 
   // Handle different color types
   switch (color_type) {
@@ -70,7 +66,6 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
       png_read_image(png, row_pointers);
 
       // Flatten the image data
-      image_data = new png_byte[width * height * 4];
       for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
           image_data[(i * width + j) * 4 + 0] = row_pointers[i][j * 4 + 0];
@@ -84,7 +79,7 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
       GLuint textureID;
       glGenTextures(1, &textureID);
       glBindTexture(GL_TEXTURE_2D, textureID);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data.data());
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       image_texture = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureID));
@@ -95,7 +90,6 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
       // Clean up
       for (int i = 0; i < height; ++i) delete[] row_pointers[i];
       delete[] row_pointers;
-      delete[] image_data;
       break;
 
     default:
@@ -103,11 +97,55 @@ bool load_image(const std::string& filename, ImVec2& image_size, ImTextureID& im
       std::cerr << "Unsupported PNG color type: " << color_type << std::endl;
       break;
   }
-
-  // Clean up
+  
   png_destroy_read_struct(&png, &info, nullptr);
-  fclose(file);
+  return true;
+}
 
+bool save_image(const std::string& filename, const png_bytep data, const int width, const int height) {
+  // Open the PNG file
+  FILE* file = fopen(filename.c_str(), "wb");
+  if (!file) {
+    std::cerr << "Failed to open for writing: " << filename << std::endl;
+    return false;
+  }
+  std::unique_ptr<FILE, decltype(&fclose)> file_guard(file, fclose);
+
+  // Create a PNG write struct
+  png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+  if (!png) {
+    std::cerr << "Failed to create PNG write struct" << std::endl;
+    return false;
+  }
+
+  // Create a PNG info struct
+  png_infop info = png_create_info_struct(png);
+  if (!info) {
+    std::cerr << "Failed to create PNG info struct" << std::endl;
+    png_destroy_write_struct(&png, (png_infopp)nullptr);
+    return false;
+  }
+
+  // Set the error handler
+  if (setjmp(png_jmpbuf(png))) {
+    std::cerr << "Failed to set PNG jump buffer" << std::endl;
+    png_destroy_write_struct(&png, &info);
+    return false;
+  }
+
+  // Write the PNG image
+  png_init_io(png, file);
+  png_set_IHDR(png, info, width, height, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+  std::vector<png_bytep> row_pointers(height);
+  for (int i = 0; i < height; ++i) {
+    row_pointers[i] = const_cast<png_bytep>(&data[i * width * 4]);
+  }
+
+  png_set_rows(png, info, &row_pointers[0]);
+  png_write_png(png, info, PNG_TRANSFORM_IDENTITY, nullptr);
+
+  png_destroy_write_struct(&png, &info);
   return true;
 }
 
@@ -171,6 +209,11 @@ int main(int argc, char *argv[]) {
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init(glsl_version);
 
+  // Create a file browser instance
+  ImGui::FileBrowser file_dialog;
+  file_dialog.SetTitle("File Browser");
+  file_dialog.SetTypeFilters({ ".png" });
+
   // Our state
   bool show_demo_window = true;
   bool show_another_window = false;
@@ -187,6 +230,7 @@ int main(int argc, char *argv[]) {
     ImGui::NewFrame();
 
     // Variables
+    static bool open_dialog = false;
     static bool png_loaded = false;
     static ImTextureID png_texture;
     static ImVec2 image_size;
@@ -206,13 +250,14 @@ int main(int argc, char *argv[]) {
         if (ImGui::BeginMenu("File")) {
           // TODO: Implement file menu
           if (ImGui::MenuItem("Open", "Ctrl+O")) {
-            // TODO: Implement open file dialog
-
-            // Load the PNG image
-            png_loaded = load_image("../sphere.png", image_size, png_texture);
+            // Set the flag to true to open the dialog on the next frame
+            open_dialog = true;
           }
 
-          if (ImGui::MenuItem("Save", "Ctrl+S")) {}
+          if (ImGui::MenuItem("Save", "Ctrl+S")) {
+            if (png_loaded) png_loaded = !save_image("../sphere2.png", nullptr, 0, 0);
+          }
+
           if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
           
           ImGui::Separator();
@@ -225,12 +270,32 @@ int main(int argc, char *argv[]) {
         ImGui::EndMenuBar();
       }
 
+      if (open_dialog) {
+        file_dialog.Open();
+        open_dialog = false;
+      }
+
       if (!png_loaded) {
         ImGui::Text("No PNG file loaded");
       }
 
       // End of window
       ImGui::End();
+    }
+
+    // File Browser
+    {
+      // Display the file browser
+      file_dialog.Display();
+
+      // If a file is selected
+      if (file_dialog.HasSelected()) {
+        // Load the PNG image
+        png_loaded = load_image(file_dialog.GetSelected().string(), image_size, png_texture);
+
+        // Close the file dialog
+        file_dialog.ClearSelected();
+      }
     }
 
     // PNG Editor
