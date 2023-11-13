@@ -15,22 +15,41 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-std::vector<png_byte> load_image(const std::string& filename, int& width, int& height, ImTextureID& image_texture) {
-  std::vector<png_byte> image_data;
+std::vector<png_byte> imageData;
+int imageWidth = 0, imageHeight = 0;
+bool pngLoaded = false, openDialog = false;
+ImTextureID imageTexture;
 
+void createOpenGLTexture(void) {
+  // Create an OpenGL texture from the image data
+  GLuint textureID;
+  glGenTextures(1, &textureID);
+  glBindTexture(GL_TEXTURE_2D, textureID);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData.data());
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  
+  imageTexture = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureID));
+}
+
+void updateOpenGLTexture(void) {
+  glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)imageTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData.data());
+}
+
+bool loadImage(const std::string& filename) {
   // Open the PNG file
   FILE* file = fopen(filename.c_str(), "rb");
   if (!file) {
     std::cerr << "Failed to open for reading: " << filename << std::endl;
-    return image_data;
+    return false;
   }
-  std::unique_ptr<FILE, decltype(&fclose)> file_guard(file, fclose);
+  std::unique_ptr<FILE, decltype(&fclose)> fileGuard(file, fclose);
 
   // Create a PNG read struct
   png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
   if (!png) {
     std::cerr << "Failed to create PNG read struct" << std::endl;
-    return image_data;
+    return false;
   }
 
   // Create a PNG info struct
@@ -38,80 +57,70 @@ std::vector<png_byte> load_image(const std::string& filename, int& width, int& h
   if (!info) {
     std::cerr << "Failed to create PNG info struct" << std::endl;
     png_destroy_read_struct(&png, nullptr, nullptr);
-    return image_data;
+    return false;
   }
 
   // Set the PNG jump buffer
   if (setjmp(png_jmpbuf(png))) {
     std::cerr << "Failed to set PNG jump buffer" << std::endl;
     png_destroy_read_struct(&png, &info, nullptr);
-    return image_data;
+    return false;
   }
 
   png_init_io(png, file);
   png_read_info(png, info);
 
-  width = png_get_image_width(png, info);
-  height = png_get_image_height(png, info);
-  int bit_depth = png_get_bit_depth(png, info);
-  int color_type = png_get_color_type(png, info);
+  imageWidth = png_get_image_width(png, info);
+  imageHeight = png_get_image_height(png, info);
+  int bitDepth = png_get_bit_depth(png, info);
+  int colorType = png_get_color_type(png, info);
 
   // Read the PNG image
-  png_bytep* row_pointers = nullptr;
-  image_data.resize(width * height * 4);
+  png_bytep* rowPointers = nullptr;
+  imageData.resize(imageWidth * imageHeight * 4);
 
   // Handle different color types
-  switch (color_type) {
+  switch (colorType) {
     case PNG_COLOR_TYPE_RGBA: // RGBA
-      std::cout << "RGBA image" << std::endl;
-
       // Create a buffer to hold the image data
-      row_pointers = new png_bytep[height];
-      for (int i = 0; i < height; ++i) row_pointers[i] = new png_byte[png_get_rowbytes(png, info)];
-      png_read_image(png, row_pointers);
+      rowPointers = new png_bytep[imageHeight];
+      for (int i = 0; i < imageHeight; ++i) rowPointers[i] = new png_byte[png_get_rowbytes(png, info)];
+      png_read_image(png, rowPointers);
 
       // Flatten the image data
-      for (int i = 0; i < height; ++i) {
-        for (int j = 0; j < width; ++j) {
-          image_data[(i * width + j) * 4 + 0] = row_pointers[i][j * 4 + 0];
-          image_data[(i * width + j) * 4 + 1] = row_pointers[i][j * 4 + 1];
-          image_data[(i * width + j) * 4 + 2] = row_pointers[i][j * 4 + 2];
-          image_data[(i * width + j) * 4 + 3] = row_pointers[i][j * 4 + 3];
+      for (int i = 0; i < imageHeight; ++i) {
+        for (int j = 0; j < imageWidth; ++j) {
+          imageData[(i * imageWidth + j) * 4 + 0] = rowPointers[i][j * 4 + 0];
+          imageData[(i * imageWidth + j) * 4 + 1] = rowPointers[i][j * 4 + 1];
+          imageData[(i * imageWidth + j) * 4 + 2] = rowPointers[i][j * 4 + 2];
+          imageData[(i * imageWidth + j) * 4 + 3] = rowPointers[i][j * 4 + 3];
         }
       }
-
-      // Create an OpenGL texture from the image data
-      GLuint textureID;
-      glGenTextures(1, &textureID);
-      glBindTexture(GL_TEXTURE_2D, textureID);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data.data());
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      image_texture = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureID));
+      createOpenGLTexture();
 
       // Clean up
-      for (int i = 0; i < height; ++i) delete[] row_pointers[i];
-      delete[] row_pointers;
+      for (int i = 0; i < imageHeight; ++i) delete[] rowPointers[i];
+      delete[] rowPointers;
       break;
 
     default:
       // Unsupported color type
-      std::cerr << "Unsupported PNG color type: " << color_type << std::endl;
+      std::cerr << "Unsupported PNG color type: " << colorType << std::endl;
       break;
   }
   
   png_destroy_read_struct(&png, &info, nullptr);
-  return image_data;
+  return true;
 }
 
-bool save_image(const std::string& filename, const png_bytep data, const int width, const int height) {
+bool saveImage(const std::string& filename) {
   // Open the PNG file
   FILE* file = fopen(filename.c_str(), "wb");
   if (!file) {
     std::cerr << "Failed to open for writing: " << filename << std::endl;
     return false;
   }
-  std::unique_ptr<FILE, decltype(&fclose)> file_guard(file, fclose);
+  std::unique_ptr<FILE, decltype(&fclose)> fileGuard(file, fclose);
 
   // Create a PNG write struct
   png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
@@ -137,41 +146,118 @@ bool save_image(const std::string& filename, const png_bytep data, const int wid
 
   // Write the PNG image
   png_init_io(png, file);
-  png_set_IHDR(png, info, width, height, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+  png_set_IHDR(png, info, imageWidth, imageHeight, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
-  std::vector<png_bytep> row_pointers(height);
-  for (int i = 0; i < height; ++i) {
-    row_pointers[i] = const_cast<png_bytep>(&data[i * width * 4]);
+  std::vector<png_bytep> rowPointers(imageHeight);
+  for (int i = 0; i < imageHeight; ++i) {
+    rowPointers[i] = &imageData[i * imageWidth * 4];
   }
 
-  png_set_rows(png, info, &row_pointers[0]);
+  png_set_rows(png, info, &rowPointers[0]);
   png_write_png(png, info, PNG_TRANSFORM_IDENTITY, nullptr);
 
   png_destroy_write_struct(&png, &info);
   return true;
 }
 
-void invert_colors(std::vector<png_byte>& image_data, int width, int height) {
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      int idx = (y * width + x) * 4; // 4 for RGBA
-      image_data[idx + 0] = 255 - image_data[idx + 0]; // R
-      image_data[idx + 1] = 255 - image_data[idx + 1]; // G
-      image_data[idx + 2] = 255 - image_data[idx + 2]; // B
+void invertColors(void) {
+  for (int y = 0; y < imageHeight; ++y) {
+    for (int x = 0; x < imageWidth; ++x) {
+      int idx = (y * imageWidth + x) * 4; // 4 for RGBA
+      imageData[idx + 0] = 255 - imageData[idx + 0]; // R
+      imageData[idx + 1] = 255 - imageData[idx + 1]; // G
+      imageData[idx + 2] = 255 - imageData[idx + 2]; // B
     }
   }
 }
 
-void convert_to_grayscale(std::vector<png_byte>& image_data, int width, int height) {
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      int idx = (y * width + x) * 4; // 4 for RGBA
-      png_byte avg = static_cast<png_byte>((image_data[idx]+image_data[idx+1]+image_data[idx+2])/3);
-      image_data[idx + 0] = avg; // R
-      image_data[idx + 1] = avg; // G
-      image_data[idx + 2] = avg; // B
+void convertToGrayscale(void) {
+  for (int y = 0; y < imageHeight; ++y) {
+    for (int x = 0; x < imageWidth; ++x) {
+      int idx = (y * imageWidth + x) * 4; // 4 for RGBA
+      png_byte avg = static_cast<png_byte>((imageData[idx] + imageData[idx + 1] + imageData[idx + 2]) / 3);
+      imageData[idx + 0] = avg; // R
+      imageData[idx + 1] = avg; // G
+      imageData[idx + 2] = avg; // B
     }
   }
+}
+
+void renderMainMenu(ImGui::FileBrowser& fileDialog, GLFWwindow* window) {
+  // Start of window
+  ImGui::SetNextWindowPos(ImVec2(10, 10));
+  ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH / 6, SCREEN_HEIGHT / 4));
+  ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse);
+
+  // Menu bar
+  if (ImGui::BeginMenuBar()) {
+    if (ImGui::BeginMenu("File")) {
+      // TODO: Implement file menu
+      if (ImGui::MenuItem("Open", "Ctrl+O")) {
+        // Set the flag to true to open the dialog on the next frame
+        openDialog = true;
+      }
+
+      if (ImGui::MenuItem("Save", "Ctrl+S")) {
+        if (pngLoaded) pngLoaded = !saveImage("../sphere2.png");
+      }
+
+      if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
+          
+      ImGui::Separator();
+      if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
+        glfwSetWindowShouldClose(window, true);
+      }
+
+      ImGui::EndMenu();
+    }
+    ImGui::EndMenuBar();
+  }
+
+  if (openDialog) {
+    fileDialog.Open();
+    openDialog = false;
+  }
+
+  if (!pngLoaded) {
+    ImGui::Text("No PNG file loaded");
+  }
+
+  // End of window
+  ImGui::End();
+}
+
+void renderControlPanel(void) {
+  ImGui::SetNextWindowPos(ImVec2(10, SCREEN_HEIGHT / 4 + 20));
+  ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH / 6, SCREEN_HEIGHT / 4));
+  ImGui::Begin("Control Panel", nullptr);
+
+  if (ImGui::Button("Invert Colors")) {
+    invertColors();
+    updateOpenGLTexture();
+  }
+
+  if (ImGui::Button("Convert to Grayscale")) {
+    convertToGrayscale();
+    updateOpenGLTexture();
+  }
+
+  ImGui::End();
+}
+
+void renderImageEditorWindow(void) {
+  ImGui::SetNextWindowPos(ImVec2(SCREEN_WIDTH / 2, 10));
+  ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH / 2 - 10, SCREEN_HEIGHT - 20));
+  ImGui::Begin("PNG Editor", nullptr);
+
+  ImVec2 windowPos = ImGui::GetWindowPos();
+  ImVec2 windowSize = ImGui::GetWindowSize();
+  ImVec2 imagePos = ImVec2(windowPos.x + windowSize.x / 2.0f - imageWidth / 2.0f, windowPos.y + windowSize.y / 2.0f - imageHeight / 2.0f);
+
+  ImGui::SetCursorPos(ImVec2(imagePos.x - windowPos.x, imagePos.y - windowPos.y));
+  ImGui::Image(imageTexture, ImVec2(imageWidth, imageHeight));
+
+  ImGui::End();
 }
 
 int main(int argc, char *argv[]) {
@@ -235,16 +321,14 @@ int main(int argc, char *argv[]) {
   ImGui_ImplOpenGL3_Init(glsl_version);
 
   // Create a file browser instance
-  ImGui::FileBrowser file_dialog;
-  file_dialog.SetTitle("File Browser");
-  file_dialog.SetTypeFilters({ ".png" });
+  ImGui::FileBrowser fileDialog;
+  fileDialog.SetTitle("File Browser");
+  fileDialog.SetTypeFilters({ ".png" });
 
   // Our state
-  std::vector<png_byte> image_data;
-  int image_width = 0, image_height = 0;
   bool show_demo_window = true;
   bool show_another_window = false;
-  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  ImVec4 clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
   // Main loop
   while (!glfwWindowShouldClose(window)) {
@@ -256,119 +340,36 @@ int main(int argc, char *argv[]) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // Variables
-    static bool open_dialog = false;
-    static bool png_loaded = false;
-    static ImTextureID png_texture;
-
-    // Main Menu
-    {
-      // Flags
-      static ImGuiWindowFlags window_flags = 0;
-      window_flags |= ImGuiWindowFlags_MenuBar;
-      window_flags |= ImGuiWindowFlags_NoCollapse;
-
-      // Start of window
-      ImGui::Begin("Main Menu", nullptr, window_flags);
-
-      // Menu bar
-      if (ImGui::BeginMenuBar()) {
-        if (ImGui::BeginMenu("File")) {
-          // TODO: Implement file menu
-          if (ImGui::MenuItem("Open", "Ctrl+O")) {
-            // Set the flag to true to open the dialog on the next frame
-            open_dialog = true;
-          }
-
-          if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            if (png_loaded) png_loaded = !save_image("../sphere2.png", image_data.data(), image_width, image_height);
-          }
-
-          if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
-          
-          ImGui::Separator();
-          if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
-            glfwSetWindowShouldClose(window, true);
-          }
-
-          ImGui::EndMenu();
-        }
-        ImGui::EndMenuBar();
-      }
-
-      if (open_dialog) {
-        file_dialog.Open();
-        open_dialog = false;
-      }
-
-      if (!png_loaded) {
-        ImGui::Text("No PNG file loaded");
-      }
-
-      // End of window
-      ImGui::End();
-    }
+    renderMainMenu(fileDialog, window);
 
     // File Browser
     {
       // Display the file browser
-      file_dialog.Display();
+      fileDialog.Display();
 
       // If a file is selected
-      if (file_dialog.HasSelected()) {
+      if (fileDialog.HasSelected()) {
         // Load the PNG image
-        image_data = load_image(file_dialog.GetSelected().string(), image_width, image_height, png_texture);
-        png_loaded = true;
+        pngLoaded = loadImage(fileDialog.GetSelected().string());
 
         // Close the file dialog
-        file_dialog.ClearSelected();
+        fileDialog.ClearSelected();
       }
     }
 
-    // Control Panel
-    if (png_loaded) {
-      ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-      ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH/6, SCREEN_HEIGHT/4), ImGuiCond_FirstUseEver);
-      ImGui::Begin("Control Panel", nullptr);
-
-      if (ImGui::Button("Invert Colors")) {
-        invert_colors(image_data, image_width, image_height);
-        glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)png_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data.data());
+    // Control Panel and Image Editor Window
+    if (pngLoaded) {
+      renderControlPanel();
+      if (imageTexture == nullptr) {
+        createOpenGLTexture();
       }
-
-      if (ImGui::Button("Convert to Grayscale")) {
-        convert_to_grayscale(image_data, image_width, image_height);
-        glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)png_texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data.data());
-      }
-
-      ImGui::End();
-    }
-
-    // PNG Editor Window
-    if (png_loaded) {
-      // If you want to make the window moveable, use ImGuiCond_FirstUseEver
-      ImGui::SetNextWindowPos(ImVec2(SCREEN_WIDTH/2, 10));
-      ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH/2-10, SCREEN_HEIGHT-20));
-      ImGui::Begin("PNG Editor", nullptr);
-
-      ImVec2 windowPos = ImGui::GetWindowPos();
-      ImVec2 windowSize = ImGui::GetWindowSize();
-      ImVec2 imagePos = ImVec2(windowPos.x + windowSize.x / 2.0f - image_width / 2.0f, windowPos.y + windowSize.y / 2.0f - image_height / 2.0f);
-
-      ImGui::SetCursorPos(ImVec2(imagePos.x - windowPos.x, imagePos.y - windowPos.y));
-      ImGui::Image(png_texture, ImVec2(image_width, image_height));
-
-      ImGui::End();
+      renderImageEditorWindow();
     }
 
     // Rendering
     ImGui::Render();
-    int display_w, display_h;
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    glClearColor(clearColor.x * clearColor.w, clearColor.y * clearColor.w, clearColor.z * clearColor.w, clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
