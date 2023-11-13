@@ -2,7 +2,6 @@
 #include <vector>
 #include <fstream>
 #include <string>
-#include <cstring>
 #include <memory>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -12,12 +11,13 @@
 #include "imfilebrowser.h"
 #include "png.h"
 
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
+const int SCREEN_WIDTH = 1280;
+const int SCREEN_HEIGHT = 720;
 
 std::vector<png_byte> imageData;
 int imageWidth = 0, imageHeight = 0;
 bool pngLoaded = false, openDialog = false;
+std::string filename;
 ImTextureID imageTexture;
 
 void createOpenGLTexture(void) {
@@ -36,7 +36,7 @@ void updateOpenGLTexture(void) {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData.data());
 }
 
-bool loadImage(const std::string& filename) {
+bool loadImage(void) {
   // Open the PNG file
   FILE* file = fopen(filename.c_str(), "rb");
   if (!file) {
@@ -113,7 +113,7 @@ bool loadImage(const std::string& filename) {
   return true;
 }
 
-bool saveImage(const std::string& filename) {
+bool saveImage(void) {
   // Open the PNG file
   FILE* file = fopen(filename.c_str(), "wb");
   if (!file) {
@@ -194,17 +194,17 @@ void renderMainMenu(ImGui::FileBrowser& fileDialog, GLFWwindow* window) {
     if (ImGui::BeginMenu("File")) {
       // TODO: Implement file menu
       if (ImGui::MenuItem("Open", "Ctrl+O")) {
-        // Set the flag to true to open the dialog on the next frame
         openDialog = true;
       }
 
       if (ImGui::MenuItem("Save", "Ctrl+S")) {
-        if (pngLoaded) pngLoaded = !saveImage("../sphere2.png");
+        if (pngLoaded) pngLoaded = !saveImage();
       }
 
       if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {}
           
       ImGui::Separator();
+      
       if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
         glfwSetWindowShouldClose(window, true);
       }
@@ -314,7 +314,6 @@ int main(int argc, char *argv[]) {
 
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
-  // ImGui::StyleColorsLight();
 
   // Setup Platform/Renderer backends
   ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -326,8 +325,6 @@ int main(int argc, char *argv[]) {
   fileDialog.SetTypeFilters({ ".png" });
 
   // Our state
-  bool show_demo_window = true;
-  bool show_another_window = false;
   ImVec4 clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
   // Main loop
@@ -350,7 +347,8 @@ int main(int argc, char *argv[]) {
       // If a file is selected
       if (fileDialog.HasSelected()) {
         // Load the PNG image
-        pngLoaded = loadImage(fileDialog.GetSelected().string());
+        filename = fileDialog.GetSelected().string();
+        pngLoaded = loadImage();
 
         // Close the file dialog
         fileDialog.ClearSelected();
