@@ -12,6 +12,9 @@
 #include "imfilebrowser.h"
 #include "png.h"
 
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
+
 std::vector<png_byte> load_image(const std::string& filename, int& width, int& height, ImTextureID& image_texture) {
   std::vector<png_byte> image_data;
 
@@ -59,7 +62,7 @@ std::vector<png_byte> load_image(const std::string& filename, int& width, int& h
 
   // Handle different color types
   switch (color_type) {
-    case PNG_COLOR_TYPE_RGBA:
+    case PNG_COLOR_TYPE_RGBA: // RGBA
       std::cout << "RGBA image" << std::endl;
 
       // Create a buffer to hold the image data
@@ -148,6 +151,29 @@ bool save_image(const std::string& filename, const png_bytep data, const int wid
   return true;
 }
 
+void invert_colors(std::vector<png_byte>& image_data, int width, int height) {
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      int idx = (y * width + x) * 4; // 4 for RGBA
+      image_data[idx + 0] = 255 - image_data[idx + 0]; // R
+      image_data[idx + 1] = 255 - image_data[idx + 1]; // G
+      image_data[idx + 2] = 255 - image_data[idx + 2]; // B
+    }
+  }
+}
+
+void convert_to_grayscale(std::vector<png_byte>& image_data, int width, int height) {
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      int idx = (y * width + x) * 4; // 4 for RGBA
+      png_byte avg = static_cast<png_byte>((image_data[idx]+image_data[idx+1]+image_data[idx+2])/3);
+      image_data[idx + 0] = avg; // R
+      image_data[idx + 1] = avg; // G
+      image_data[idx + 2] = avg; // B
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   // Initialize GLFW
   if (!glfwInit()) {
@@ -179,7 +205,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   // Create window with graphics context
-  GLFWwindow* window = glfwCreateWindow(1280, 720, "PNGEditor", nullptr, nullptr);
+  GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "PNGEditor", nullptr, nullptr);
   if (window == nullptr) {
     std::cout << "Error: Failed to create GLFW window" << std::endl;
     return 1;
@@ -299,21 +325,41 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // PNG Editor
+    // Control Panel
     if (png_loaded) {
-      // Flags
-      static ImGuiWindowFlags window_flags = 0;
+      ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+      ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH/6, SCREEN_HEIGHT/4), ImGuiCond_FirstUseEver);
+      ImGui::Begin("Control Panel", nullptr);
 
-      // Set the window size to the image size
-      ImGui::SetNextWindowSize(ImVec2(image_width, image_height));
+      if (ImGui::Button("Invert Colors")) {
+        invert_colors(image_data, image_width, image_height);
+        glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)png_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data.data());
+      }
 
-      // Start of window
-      ImGui::Begin("PNG Editor", nullptr, window_flags);
+      if (ImGui::Button("Convert to Grayscale")) {
+        convert_to_grayscale(image_data, image_width, image_height);
+        glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)png_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data.data());
+      }
 
-      // Display the loaded PNG image
+      ImGui::End();
+    }
+
+    // PNG Editor Window
+    if (png_loaded) {
+      // If you want to make the window moveable, use ImGuiCond_FirstUseEver
+      ImGui::SetNextWindowPos(ImVec2(SCREEN_WIDTH/2, 10));
+      ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH/2-10, SCREEN_HEIGHT-20));
+      ImGui::Begin("PNG Editor", nullptr);
+
+      ImVec2 windowPos = ImGui::GetWindowPos();
+      ImVec2 windowSize = ImGui::GetWindowSize();
+      ImVec2 imagePos = ImVec2(windowPos.x + windowSize.x / 2.0f - image_width / 2.0f, windowPos.y + windowSize.y / 2.0f - image_height / 2.0f);
+
+      ImGui::SetCursorPos(ImVec2(imagePos.x - windowPos.x, imagePos.y - windowPos.y));
       ImGui::Image(png_texture, ImVec2(image_width, image_height));
 
-      // End of window
       ImGui::End();
     }
 
