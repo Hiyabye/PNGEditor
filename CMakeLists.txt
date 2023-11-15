@@ -8,7 +8,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Compiler flags
-add_executable(PhotoEditor src/main.cpp)
+add_executable(PhotoEditor src/main.cpp src/image.cpp src/render.cpp)
 target_compile_features(PhotoEditor PRIVATE cxx_std_17)
 
 # GLFW
