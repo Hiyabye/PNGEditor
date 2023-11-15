@@ -15,6 +15,7 @@ const int MARGIN = 5;
 
 class Renderer {
 private:
+  /* Private Variables */
   ImGui::FileBrowser fileDialog;
 
 public:

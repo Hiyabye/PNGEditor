@@ -95,9 +95,26 @@ void Renderer::renderControlPanel(GLFWwindow* window, Image*& image) {
   ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH / 6, 3 * SCREEN_HEIGHT / 4 - MARGIN * 3), ImGuiCond_Once);
   ImGui::Begin("Control Panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-  // TODO - Implement more image editing functions
-  if (ImGui::Button("Invert Colors")) image->invert();
-  if (ImGui::Button("Convert to Grayscale")) image->grayscale();
+  // Image editing functions
+  bool update = false;
+  if (ImGui::Button("Invert Colors")) { image->setInvert(!image->isInvert()); update = true; }
+  if (ImGui::Button("Convert to Grayscale")) { image->setGrayscale(!image->isGrayscale()); update = true; }
+  if (ImGui::Button("Blur")) { image->setBlur(!image->isBlur()); update = true; }
+  if (ImGui::Button("Sharpen")) { image->setSharpen(!image->isSharpen()); update = true; }
+  if (ImGui::SliderFloat("Red", &image->red, 0.0f, 1.0f) ||
+      ImGui::SliderFloat("Green", &image->green, 0.0f, 1.0f) ||
+      ImGui::SliderFloat("Blue", &image->blue, 0.0f, 1.0f)) update = true;
+
+  // Update the image
+  if (update) {
+    image->reset();
+    if (image->isInvert()) image->invert();
+    if (image->isGrayscale()) image->grayscale();
+    if (image->isBlur()) image->blur();
+    if (image->isSharpen()) image->sharpen();
+    image->rgb();
+    image->updateOpenGLTexture();
+  }
 
   ImGui::End();
 }

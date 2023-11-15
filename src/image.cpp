@@ -25,8 +25,16 @@ Image::Image(void) {
   this->height = 0;
   this->bitDepth = 0;
   this->colorType = 0;
+  this->originalData = std::vector<png_byte>();
   this->data = std::vector<png_byte>();
   this->texture = nullptr;
+  this->_invert = false;
+  this->_grayscale = false;
+  this->_blur = false;
+  this->_sharpen = false;
+  this->red = 1.0f;
+  this->green = 1.0f;
+  this->blue = 1.0f;
 }
 
 /////////////////// IMAGE DESTRUCTOR ////////////////////
@@ -136,6 +144,9 @@ void Image::load(const std::string path) {
       this->data[4 * (y * this->width + x) + 3] = rowPointers[y][4 * x + 3];
     }
   }
+
+  // Save the original image data
+  this->originalData = this->data;
 
   // Cleanup
   for (int i = 0; i < this->height; ++i) delete[] rowPointers[i];
@@ -262,6 +273,63 @@ void Image::updateOpenGLTexture(void) {
   }
 }
 
+/* Applies a kernel to the image
+ * 
+ * Parameters:
+ *  kernel - The kernel to apply
+ * 
+ * Returns:
+ *  None
+ */
+void Image::applyKernel(const float kernel[][3]) {
+  std::vector<png_byte> tmp = this->data;
+
+  // Default kernel size is 3x3
+  // The average of the kernel should be 1 to maintain the same brightness
+  // TODO: Allow for different kernel sizes
+  for (int y = 0; y < this->height - 2; ++y) {
+    for (int x = 0; x < this->width - 2; ++x) {
+      int idx = 4 * ((y + 1) * this->width + (x + 1)); // 4 channels (RGBA)
+
+      // Apply the kernel
+      float red_avg = 0, green_avg = 0, blue_avg = 0;
+      for (int ky = 0; ky < 3; ++ky) {
+        for (int kx = 0; kx < 3; ++kx) {
+          int kidx = 4 * ((y + ky) * this->width + (x + kx)); // 4 channels (RGBA)
+          red_avg += static_cast<float>(tmp[kidx + 0]) * kernel[ky][kx] / 9; // R
+          green_avg += static_cast<float>(tmp[kidx + 1]) * kernel[ky][kx] / 9; // G
+          blue_avg += static_cast<float>(tmp[kidx + 2]) * kernel[ky][kx] / 9; // B
+        }
+      }
+
+      // Clamp the values to 0-255
+      if (red_avg < 0) red_avg = 0;
+      if (red_avg > 255) red_avg = 255;
+      if (green_avg < 0) green_avg = 0;
+      if (green_avg > 255) green_avg = 255;
+      if (blue_avg < 0) blue_avg = 0;
+      if (blue_avg > 255) blue_avg = 255;
+
+      // Set the new pixel values
+      this->data[idx + 0] = static_cast<png_byte>(red_avg); // R
+      this->data[idx + 1] = static_cast<png_byte>(green_avg); // G
+      this->data[idx + 2] = static_cast<png_byte>(blue_avg); // B
+    }
+  }
+}
+
+/* Resets the image to its original state
+ * 
+ * Parameters:
+ *  None
+ * 
+ * Returns:
+ *  None
+ */
+void Image::reset(void) {
+  this->data = this->originalData;
+}
+
 /* Invert the colors of the image
  * 
  * Parameters:
@@ -279,7 +347,6 @@ void Image::invert(void) {
       this->data[idx + 2] = 255 - this->data[idx + 2]; // B
     }
   }
-  this->updateOpenGLTexture();
 }
 
 /* Grayscale the image
@@ -300,7 +367,59 @@ void Image::grayscale(void) {
       this->data[idx + 2] = avg; // B
     }
   }
-  this->updateOpenGLTexture();
+}
+
+/* Blur the image
+ * 
+ * Parameters:
+ *  None
+ * 
+ * Returns:
+ *  None
+ */
+void Image::blur(void) {
+  const float kernel[3][3] = {
+    { 1, 1, 1 },
+    { 1, 1, 1 },
+    { 1, 1, 1 }
+  };
+  this->applyKernel(kernel);
+}
+
+/* Sharpen the image
+ * 
+ * Parameters:
+ *  None
+ * 
+ * Returns:
+ *  None
+ */
+void Image::sharpen(void) {
+  const float kernel[3][3] = {
+    { 0.25, 0.25, 0.25 },
+    { 0.25, 7, 0.25 },
+    { 0.25, 0.25, 0.25 }
+  };
+  this->applyKernel(kernel);
+}
+
+/* Modify the image's RGB values
+ * 
+ * Parameters:
+ *  None
+ * 
+ * Returns:
+ *  None
+ */
+void Image::rgb(void) {
+  for (int y = 0; y < this->height; ++y) {
+    for (int x = 0; x < this->width; ++x) {
+      int idx = 4 * (y * this->width + x); // 4 channels (RGBA)
+      this->data[idx + 0] = static_cast<png_byte>(this->data[idx + 0] * red); // R
+      this->data[idx + 1] = static_cast<png_byte>(this->data[idx + 1] * green); // G
+      this->data[idx + 2] = static_cast<png_byte>(this->data[idx + 2] * blue); // B
+    }
+  }
 }
 
 /////////////////// IMAGE GETTERS ///////////////////
@@ -313,6 +432,10 @@ int Image::getBitDepth(void) const { return this->bitDepth; }
 int Image::getColorType(void) const { return this->colorType; }
 std::vector<png_byte> Image::getData(void) const { return this->data; }
 ImTextureID Image::getTexture(void) const { return this->texture; }
+bool Image::isInvert(void) const { return this->_invert; }
+bool Image::isGrayscale(void) const { return this->_grayscale; }
+bool Image::isBlur(void) const { return this->_blur; }
+bool Image::isSharpen(void) const { return this->_sharpen; }
 
 /////////////////// IMAGE SETTERS ///////////////////
 
@@ -324,3 +447,7 @@ void Image::setBitDepth(int bitDepth) { this->bitDepth = bitDepth; }
 void Image::setColorType(int colorType) { this->colorType = colorType; }
 void Image::setData(std::vector<png_byte> data) { this->data = data; }
 void Image::setTexture(ImTextureID texture) { this->texture = texture; }
+void Image::setInvert(bool invert) { this->_invert = invert; }
+void Image::setGrayscale(bool grayscale) { this->_grayscale = grayscale; }
+void Image::setBlur(bool blur) { this->_blur = blur; }
+void Image::setSharpen(bool sharpen) { this->_sharpen = sharpen; }
