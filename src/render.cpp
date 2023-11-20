@@ -17,6 +17,8 @@ Renderer::Renderer(void) {
   this->blurIcon.createOpenGLTexture();
   this->sharpenIcon.load("assets/sharpen.png");
   this->sharpenIcon.createOpenGLTexture();
+  this->rotateIcon.load("assets/rotate.png");
+  this->rotateIcon.createOpenGLTexture();
 }
 
 /////////////////// RENDERER DESTRUCTOR ////////////////////
@@ -31,6 +33,7 @@ Renderer::~Renderer(void) {
   this->grayscaleIcon.~Image();
   this->blurIcon.~Image();
   this->sharpenIcon.~Image();
+  this->rotateIcon.~Image();
 
   // Deallocate renderer
   delete this;
@@ -98,6 +101,10 @@ void Renderer::renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& im
       ImGui::SliderFloat("Green", &image->green, 0.0f, 1.0f) ||
       ImGui::SliderFloat("Blue", &image->blue, 0.0f, 1.0f)) update = true;
 
+  static bool rotate = false;
+  if (ImGui::ImageButton(this->rotateIcon.getTexture(), ImVec2(32, 32))) rotate = !rotate;
+  if (rotate && ImGui::SliderInt("Angle", &image->rotateAngle, -180, 180)) update = true;
+
   // Update the image
   if (update) {
     image->reset();
@@ -106,6 +113,7 @@ void Renderer::renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& im
     if (image->isBlur()) image->blur();
     if (image->isSharpen()) image->sharpen();
     image->rgb();
+    image->rotate();
     image->updateOpenGLTexture();
   }
 

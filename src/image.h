@@ -27,6 +27,7 @@ public:
   float red;
   float green;
   float blue;
+  int rotateAngle;
 
   /* Constructor */
   Image(void);
@@ -46,6 +47,7 @@ public:
   void blur(void);
   void sharpen(void);
   void rgb(void);
+  void rotate(void);
 
   /* Getters */
   std::string getPath(void) const;

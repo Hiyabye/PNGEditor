@@ -22,6 +22,7 @@ private:
   Image grayscaleIcon;
   Image blurIcon;
   Image sharpenIcon;
+  Image rotateIcon;
 
 public:
   /* Constructor */

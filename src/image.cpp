@@ -28,6 +28,7 @@ Image::Image(void) {
   this->red = 1.0f;
   this->green = 1.0f;
   this->blue = 1.0f;
+  this->rotateAngle = 0;
 }
 
 /////////////////// IMAGE DESTRUCTOR ////////////////////
@@ -330,6 +331,27 @@ void Image::rgb(void) {
       this->data[idx + 0] = static_cast<png_byte>(this->data[idx + 0] * red); // R
       this->data[idx + 1] = static_cast<png_byte>(this->data[idx + 1] * green); // G
       this->data[idx + 2] = static_cast<png_byte>(this->data[idx + 2] * blue); // B
+    }
+  }
+}
+
+// @brief: Rotates the image
+void Image::rotate(void) {
+  std::vector<png_byte> tmpData = this->data;
+
+  for (int y = 0; y < this->height; ++y) {
+    for (int x = 0; x < this->width; ++x) {
+      // [[cos(theta), -sin(theta)], [sin(theta), cos(theta)]] * [x, y]
+      int ny = static_cast<int>(std::round((x - this->width / 2.0f) * std::sin(this->rotateAngle * M_PI / 180.0f) + (y - this->height / 2.0f) * std::cos(this->rotateAngle * M_PI / 180.0f) + this->height / 2.0f));
+      int nx = static_cast<int>(std::round((x - this->width / 2.0f) * std::cos(this->rotateAngle * M_PI / 180.0f) - (y - this->height / 2.0f) * std::sin(this->rotateAngle * M_PI / 180.0f) + this->width / 2.0f));
+      if (ny < 0 || ny >= this->height || nx < 0 || nx >= this->width) continue;
+
+      int idx = 4 * (y * this->width + x); // 4 channels (RGBA)
+      int kidx = 4 * (ny * this->width + nx); // 4 channels (RGBA)
+      this->data[idx + 0] = tmpData[kidx + 0]; // R
+      this->data[idx + 1] = tmpData[kidx + 1]; // G
+      this->data[idx + 2] = tmpData[kidx + 2]; // B
+      this->data[idx + 3] = tmpData[kidx + 3]; // A
     }
   }
 }
