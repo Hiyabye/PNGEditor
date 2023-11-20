@@ -7,6 +7,16 @@ Renderer::Renderer(void) {
   // Initialize file dialog
   this->fileDialog.SetTitle("Select PNG file");
   this->fileDialog.SetTypeFilters({ ".png" });
+
+  // Initialize icons
+  this->invertIcon.load("assets/invert.png");
+  this->invertIcon.createOpenGLTexture();
+  this->grayscaleIcon.load("assets/grayscale.png");
+  this->grayscaleIcon.createOpenGLTexture();
+  this->blurIcon.load("assets/blur.png");
+  this->blurIcon.createOpenGLTexture();
+  this->sharpenIcon.load("assets/sharpen.png");
+  this->sharpenIcon.createOpenGLTexture();
 }
 
 /////////////////// RENDERER DESTRUCTOR ////////////////////
@@ -15,6 +25,12 @@ Renderer::Renderer(void) {
 Renderer::~Renderer(void) {
   // Deallocate file dialog
   this->fileDialog.ClearSelected();
+
+  // Deallocate icons
+  this->invertIcon.~Image();
+  this->grayscaleIcon.~Image();
+  this->blurIcon.~Image();
+  this->sharpenIcon.~Image();
 
   // Deallocate renderer
   delete this;
@@ -74,10 +90,10 @@ void Renderer::renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& im
 
   // Image editing functions
   bool update = false;
-  if (ImGui::Button("Invert Colors")) { image->setInvert(!image->isInvert()); update = true; }
-  if (ImGui::Button("Convert to Grayscale")) { image->setGrayscale(!image->isGrayscale()); update = true; }
-  if (ImGui::Button("Blur")) { image->setBlur(!image->isBlur()); update = true; }
-  if (ImGui::Button("Sharpen")) { image->setSharpen(!image->isSharpen()); update = true; }
+  if (ImGui::ImageButton(this->invertIcon.getTexture(), ImVec2(32, 32))) { image->setInvert(!image->isInvert()); update = true; }
+  if (ImGui::ImageButton(this->grayscaleIcon.getTexture(), ImVec2(32, 32))) { image->setGrayscale(!image->isGrayscale()); update = true; }
+  if (ImGui::ImageButton(this->blurIcon.getTexture(), ImVec2(32, 32))) { image->setBlur(!image->isBlur()); update = true; }
+  if (ImGui::ImageButton(this->sharpenIcon.getTexture(), ImVec2(32, 32))) { image->setSharpen(!image->isSharpen()); update = true; }
   if (ImGui::SliderFloat("Red", &image->red, 0.0f, 1.0f) ||
       ImGui::SliderFloat("Green", &image->green, 0.0f, 1.0f) ||
       ImGui::SliderFloat("Blue", &image->blue, 0.0f, 1.0f)) update = true;
