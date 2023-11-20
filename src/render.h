@@ -18,6 +18,10 @@ class Renderer {
 private:
   /* Private Variables */
   ImGui::FileBrowser fileDialog;
+  Image invertIcon;
+  Image grayscaleIcon;
+  Image blurIcon;
+  Image sharpenIcon;
 
 public:
   /* Constructor */

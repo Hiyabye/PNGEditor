@@ -30,8 +30,7 @@ make
 
 ## Acknowledgements
 
- - [ChatGPT](https://chat.openai.com/)
- - [GitHub Copilot](https://copilot.github.com/)
+ - [ChatGPT](https://chat.openai.com/): All documentation was written using ChatGPT.
  - [gitignore](https://www.toptal.com/developers/gitignore)
  - [LearnOpenGL](https://learnopengl.com/)
  - [glad](https://glad.dav1d.de/)
@@ -39,6 +38,7 @@ make
  - [libpng](http://www.libpng.org/pub/png/libpng.html)
  - [Dear ImGui](https://github.com/ocornut/imgui/blob/master/examples/example_glfw_opengl3/main.cpp)
  - [imgui-filebrowser](https://github.com/AirGuanZ/imgui-filebrowser)
+ - [Icons8](https://icons8.com/)
 
 ## License
 
