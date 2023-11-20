@@ -1,10 +1,11 @@
 #pragma once
 
+#include <memory>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
 #include <imfilebrowser.h>
 #include "image.h"
 
@@ -26,8 +27,8 @@ public:
   ~Renderer(void);
 
   /* Methods */
-  void renderMainMenu(GLFWwindow* window, Image*& image);
-  void renderFileDialog(GLFWwindow* window, Image*& image);
-  void renderControlPanel(GLFWwindow* window, Image*& image);
-  void renderImageEditorWindow(GLFWwindow* window, Image*& image);
+  void renderMainMenu(GLFWwindow* window, std::unique_ptr<Image>& image);
+  void renderFileDialog(GLFWwindow* window, std::unique_ptr<Image>& image);
+  void renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& image);
+  void renderImageEditorWindow(GLFWwindow* window, std::unique_ptr<Image>& image);
 };

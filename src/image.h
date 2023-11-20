@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <png.h>
+#include <imgui.h>
 
 class Image {
 private:

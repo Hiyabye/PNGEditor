@@ -4,20 +4,13 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
 #include "image.h"
 
 /////////////////// IMAGE CONSTRUCTOR ///////////////////
 
-/* Initializes the image class with default values
- *
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Initializes the image class with default values
 Image::Image(void) {
   this->path = "";
   this->loaded = false;
@@ -39,28 +32,16 @@ Image::Image(void) {
 
 /////////////////// IMAGE DESTRUCTOR ////////////////////
 
-/* Deallocates the image class
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Deallocates the image class
 Image::~Image(void) {
+  // Deallocate image
   delete this;
 }
 
 /////////////////// IMAGE METHODS ///////////////////////
 
-/* Loads an image from a file into memory
- * 
- * Parameters:
- *  path - The path to the image file
- * 
- * Returns:
- *  None
- */
+// @brief: Loads an image from a file into memory
+// @param `path`: The path to the image file
 void Image::load(const std::string path) {
   // Set the path
   this->path = path;
@@ -156,14 +137,7 @@ void Image::load(const std::string path) {
   this->loaded = true;
 }
 
-/* Saves an image from memory to a file
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Saves an image from memory to a file
 void Image::save(void) {
   // Open the file
   FILE* fp = fopen(this->path.c_str(), "wb");
@@ -213,14 +187,7 @@ void Image::save(void) {
   this->loaded = false;
 }
 
-/* Creates an OpenGL texture from the image data
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Creates an OpenGL texture from the image data
 void Image::createOpenGLTexture(void) {
   // Generate a texture ID
   GLuint textureID;
@@ -249,14 +216,7 @@ void Image::createOpenGLTexture(void) {
   this->texture = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(textureID));
 }
 
-/* Updates the OpenGL texture with the image data
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Updates the OpenGL texture with the image data
 void Image::updateOpenGLTexture(void) {
   // Bind the texture
   glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)this->texture);
@@ -273,14 +233,8 @@ void Image::updateOpenGLTexture(void) {
   }
 }
 
-/* Applies a kernel to the image
- * 
- * Parameters:
- *  kernel - The kernel to apply
- * 
- * Returns:
- *  None
- */
+// @brief: Applies a kernel to the image
+// @param `kernel`: The kernel to apply
 void Image::applyKernel(const float kernel[][3]) {
   std::vector<png_byte> tmp = this->data;
 
@@ -318,26 +272,12 @@ void Image::applyKernel(const float kernel[][3]) {
   }
 }
 
-/* Resets the image to its original state
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Resets the image to its original state
 void Image::reset(void) {
   this->data = this->originalData;
 }
 
-/* Invert the colors of the image
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Inverts the colors of the image
 void Image::invert(void) {
   for (int y = 0; y < this->height; ++y) {
     for (int x = 0; x < this->width; ++x) {
@@ -349,14 +289,7 @@ void Image::invert(void) {
   }
 }
 
-/* Grayscale the image
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Grayscales the image
 void Image::grayscale(void) {
   for (int y = 0; y < this->height; ++y) {
     for (int x = 0; x < this->width; ++x) {
@@ -369,14 +302,7 @@ void Image::grayscale(void) {
   }
 }
 
-/* Blur the image
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Blurs the image
 void Image::blur(void) {
   const float kernel[3][3] = {
     { 1, 1, 1 },
@@ -386,14 +312,7 @@ void Image::blur(void) {
   this->applyKernel(kernel);
 }
 
-/* Sharpen the image
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Sharpens the image
 void Image::sharpen(void) {
   const float kernel[3][3] = {
     { 0.25, 0.25, 0.25 },
@@ -403,14 +322,7 @@ void Image::sharpen(void) {
   this->applyKernel(kernel);
 }
 
-/* Modify the image's RGB values
- * 
- * Parameters:
- *  None
- * 
- * Returns:
- *  None
- */
+// @brief: Sets the image's RGB values to the given values
 void Image::rgb(void) {
   for (int y = 0; y < this->height; ++y) {
     for (int x = 0; x < this->width; ++x) {
