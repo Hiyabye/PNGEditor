@@ -59,6 +59,3 @@ target_include_directories(PhotoEditor PUBLIC
   "${CMAKE_BINARY_DIR}/lib/libpng"
 )
 target_link_libraries(PhotoEditor png_static)
-
-# Assets
-file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
