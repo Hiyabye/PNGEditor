@@ -97,9 +97,9 @@ void Renderer::renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& im
   if (ImGui::ImageButton(this->grayscaleIcon.getTexture(), ImVec2(32, 32))) { image->setGrayscale(!image->isGrayscale()); update = true; }
   if (ImGui::ImageButton(this->blurIcon.getTexture(), ImVec2(32, 32))) { image->setBlur(!image->isBlur()); update = true; }
   if (ImGui::ImageButton(this->sharpenIcon.getTexture(), ImVec2(32, 32))) { image->setSharpen(!image->isSharpen()); update = true; }
-  if (ImGui::SliderFloat("Red", &image->red, 0.0f, 1.0f) ||
-      ImGui::SliderFloat("Green", &image->green, 0.0f, 1.0f) ||
-      ImGui::SliderFloat("Blue", &image->blue, 0.0f, 1.0f)) update = true;
+  if (ImGui::SliderFloat("Red", &image->red, 0.0f, 1.0f)) update = true;
+  if (ImGui::SliderFloat("Green", &image->green, 0.0f, 1.0f)) update = true;
+  if (ImGui::SliderFloat("Blue", &image->blue, 0.0f, 1.0f)) update = true;
 
   static bool rotate = false;
   if (ImGui::ImageButton(this->rotateIcon.getTexture(), ImVec2(32, 32))) rotate = !rotate;

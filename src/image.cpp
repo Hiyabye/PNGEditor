@@ -339,6 +339,18 @@ void Image::rgb(void) {
 void Image::rotate(void) {
   std::vector<png_byte> tmpData = this->data;
 
+  // Clear the image
+  for (int y = 0; y < this->height; ++y) {
+    for (int x = 0; x < this->width; ++x) {
+      int idx = 4 * (y * this->width + x); // 4 channels (RGBA)
+      this->data[idx + 0] = 0; // R
+      this->data[idx + 1] = 0; // G
+      this->data[idx + 2] = 0; // B
+      this->data[idx + 3] = 0; // A
+    }
+  }
+
+  // Rotate the image
   for (int y = 0; y < this->height; ++y) {
     for (int x = 0; x < this->width; ++x) {
       // [[cos(theta), -sin(theta)], [sin(theta), cos(theta)]] * [x, y]
