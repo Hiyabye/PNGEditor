@@ -85,54 +85,31 @@ void Image::load(const std::string path) {
   this->bitDepth = png_get_bit_depth(png, info);
   this->colorType = png_get_color_type(png, info);
 
-  // Convert grayscale images to RGBA
-  if (this->colorType == PNG_COLOR_TYPE_GRAY || this->colorType == PNG_COLOR_TYPE_GRAY_ALPHA) {
-    png_set_gray_to_rgb(png);
-  }
-
-  // Convert paletted images to RGBA
-  if (this->colorType == PNG_COLOR_TYPE_PALETTE) {
-    png_set_palette_to_rgb(png);
-  }
-
-  // Add alpha channel if there is none (RGB -> RGBA)
-  if (!(this->colorType & PNG_COLOR_MASK_ALPHA)) {
-    png_set_add_alpha(png, 0xFF, PNG_FILLER_AFTER);
-  }
+  // Convert non-RGBA to RGBA
+  if (this->colorType == PNG_COLOR_TYPE_GRAY || this->colorType == PNG_COLOR_TYPE_GRAY_ALPHA) png_set_gray_to_rgb(png);
+  if (this->colorType == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png);
+  if (!(this->colorType & PNG_COLOR_MASK_ALPHA)) png_set_add_alpha(png, 0xFF, PNG_FILLER_AFTER);
+  this->colorType = PNG_COLOR_TYPE_RGBA;
 
   // Ensure 8-bit depth
-  if (this->bitDepth == 16) {
-    png_set_strip_16(png);
-  }
+  if (this->bitDepth == 16) png_set_strip_16(png);
 
   // Update the PNG info
   png_read_update_info(png, info);
 
   // Read the PNG image
-  png_bytep* rowPointers = nullptr;
+  std::vector<png_bytep> rowPointers(this->height);
   this->data.resize(this->width * this->height * 4);
 
-  // Create a buffer to hold the image data
-  rowPointers = new png_bytep[this->height];
-  for (int i = 0; i < this->height; ++i) rowPointers[i] = new png_byte[png_get_rowbytes(png, info)];
-  png_read_image(png, rowPointers);
-
-  // Flatten the image data
   for (int y = 0; y < this->height; ++y) {
-    for (int x = 0; x < this->width; ++x) {
-      this->data[4 * (y * this->width + x) + 0] = rowPointers[y][4 * x + 0];
-      this->data[4 * (y * this->width + x) + 1] = rowPointers[y][4 * x + 1];
-      this->data[4 * (y * this->width + x) + 2] = rowPointers[y][4 * x + 2];
-      this->data[4 * (y * this->width + x) + 3] = rowPointers[y][4 * x + 3];
-    }
+    rowPointers[y] = &this->data[y * this->width * 4];
   }
+  png_read_image(png, rowPointers.data());
 
   // Save the original image data
   this->originalData = this->data;
 
   // Cleanup
-  for (int i = 0; i < this->height; ++i) delete[] rowPointers[i];
-  delete[] rowPointers;
   png_destroy_read_struct(&png, &info, nullptr);
 
   this->loaded = true;
@@ -172,20 +149,17 @@ void Image::save(void) {
 
   // Write the PNG info
   png_init_io(png, fp);
-  png_set_IHDR(png, info, this->width, this->height, this->bitDepth, this->colorType, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-
-  // Assume the image data is a contiguous array of RGBA values
-  std::vector<png_bytep> rowPointers(this->height);
-  for (int i = 0; i < this->height; ++i) rowPointers[i] = &this->data[i * this->width * 4];
+  png_set_IHDR(png, info, this->width, this->height, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
   // Write the PNG image
-  png_set_rows(png, info, &rowPointers[0]);
+  std::vector<png_bytep> rowPointers(this->height);
+  for (int i = 0; i < this->height; ++i) rowPointers[i] = &this->data[i * this->width * 4];
+  png_set_rows(png, info, rowPointers.data());
   png_write_png(png, info, PNG_TRANSFORM_IDENTITY, nullptr);
   png_write_end(png, nullptr);
 
   // Cleanup
   png_destroy_write_struct(&png, &info);
-  this->loaded = false;
 }
 
 // @brief: Creates an OpenGL texture from the image data
@@ -316,9 +290,9 @@ void Image::blur(void) {
 // @brief: Sharpens the image
 void Image::sharpen(void) {
   const float kernel[3][3] = {
-    { 0.25, 0.25, 0.25 },
-    { 0.25, 7, 0.25 },
-    { 0.25, 0.25, 0.25 }
+    { -1, -1, -1 },
+    { -1, 17, -1 },
+    { -1, -1, -1 }
   };
   this->applyKernel(kernel);
 }
@@ -354,8 +328,9 @@ void Image::rotate(void) {
   for (int y = 0; y < this->height; ++y) {
     for (int x = 0; x < this->width; ++x) {
       // [[cos(theta), -sin(theta)], [sin(theta), cos(theta)]] * [x, y]
-      int ny = static_cast<int>(std::round((x - this->width / 2.0f) * std::sin(this->rotateAngle * M_PI / 180.0f) + (y - this->height / 2.0f) * std::cos(this->rotateAngle * M_PI / 180.0f) + this->height / 2.0f));
-      int nx = static_cast<int>(std::round((x - this->width / 2.0f) * std::cos(this->rotateAngle * M_PI / 180.0f) - (y - this->height / 2.0f) * std::sin(this->rotateAngle * M_PI / 180.0f) + this->width / 2.0f));
+      float rad = this->rotateAngle * M_PI / 180.0f;
+      int ny = static_cast<int>(std::round((x - this->width / 2.0f) * std::sin(rad) + (y - this->height / 2.0f) * std::cos(rad) + this->height / 2.0f));
+      int nx = static_cast<int>(std::round((x - this->width / 2.0f) * std::cos(rad) - (y - this->height / 2.0f) * std::sin(rad) + this->width / 2.0f));
       if (ny < 0 || ny >= this->height || nx < 0 || nx >= this->width) continue;
 
       int idx = 4 * (y * this->width + x); // 4 channels (RGBA)
