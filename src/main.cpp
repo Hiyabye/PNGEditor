@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
   // Initialize Dear ImGui
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos; // Enable mouse cursor
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
   ImGui::StyleColorsDark();
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     ImGui::NewFrame();
 
     // Render the main menu
-    renderer->renderMainMenu(window, image);
+    renderer->renderMainMenu(window, io, image);
 
     // Render the file dialog
     renderer->renderFileDialog(window, image);

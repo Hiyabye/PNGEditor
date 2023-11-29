@@ -32,7 +32,7 @@ public:
   ~Renderer(void);
 
   /* Methods */
-  void renderMainMenu(GLFWwindow* window, std::unique_ptr<Image>& image);
+  void renderMainMenu(GLFWwindow* window, ImGuiIO& io, std::unique_ptr<Image>& image);
   void renderFileDialog(GLFWwindow* window, std::unique_ptr<Image>& image);
   void renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& image);
   void renderImageEditorWindow(GLFWwindow* window, std::unique_ptr<Image>& image);

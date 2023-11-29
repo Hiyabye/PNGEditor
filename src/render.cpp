@@ -44,24 +44,56 @@ Renderer::~Renderer(void) {
 // @brief: Renders the main menu
 // @param `window`: The GLFW window
 // @param `image`: The image to render
-void Renderer::renderMainMenu(GLFWwindow* window, std::unique_ptr<Image>& image) {
+void Renderer::renderMainMenu(GLFWwindow* window, ImGuiIO& io, std::unique_ptr<Image>& image) {
   ImGui::SetNextWindowPos(ImVec2(MARGIN, MARGIN), ImGuiCond_Once);
   ImGui::SetNextWindowSize(ImVec2(SCREEN_WIDTH / 6, SCREEN_HEIGHT / 4), ImGuiCond_Once);
   ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar);
 
+  // Menu bar variables
+  bool open = false;
+  bool save = false;
+  bool saveAs = false;
+  bool quit = false;
+
   // Render the menu bar
   if (ImGui::BeginMenuBar()) {
     if (ImGui::BeginMenu("File")) {
-      if (ImGui::MenuItem("Open", "Ctrl+O")) this->fileDialog.Open();
-      if (ImGui::MenuItem("Save", "Ctrl+S")) if (image->isLoaded()) image->save();
-      if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {} // TODO - Implement this function
+      if (ImGui::MenuItem("Open", "Ctrl+O")) open = true;
+      if (ImGui::MenuItem("Save", "Ctrl+S")) save = true;
+      if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) saveAs = true;
       ImGui::Separator();
-      if (ImGui::MenuItem("Quit", "Ctrl+Q")) glfwSetWindowShouldClose(window, true);
+      if (ImGui::MenuItem("Quit", "Ctrl+Q")) quit = true;
       ImGui::EndMenu();
     }
     ImGui::EndMenuBar();
   }
 
+  // Keyboard shortcuts
+  bool ctrl = io.KeyCtrl;
+  if (ctrl && io.KeysDown[ImGuiKey_O]) open = true;
+  if (ctrl && io.KeysDown[ImGuiKey_S]) save = true;
+  if (ctrl && io.KeysDown[ImGuiKey_S] && io.KeyShift) saveAs = true;
+  if (ctrl && io.KeysDown[ImGuiKey_Q]) quit = true;
+
+  // Process menu bar actions
+  if (open) {
+    if (image->isLoaded()) {
+      // factory reset the image; the reset function is not used in this code
+    }
+    this->fileDialog.Open();
+  }
+
+  if (save) {
+    if (image->isLoaded()) image->save();
+  }
+
+  if (saveAs) {
+    // TODO - Implement this function
+  }
+
+  if (quit) glfwSetWindowShouldClose(window, true);
+
+  // Render the main menu
   if (!image->isLoaded()) {
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - ImGui::CalcTextSize("No PNG file loaded").x / 2);
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2 - ImGui::CalcTextSize("No PNG file loaded").y / 2);
