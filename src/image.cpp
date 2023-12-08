@@ -36,6 +36,7 @@ Image::Image(void) {
 // @brief: Deallocates the image class
 Image::~Image(void) {
   // Deallocate image
+  glDeleteTextures(1, (GLuint*)(intptr_t)this->texture);
   delete this;
 }
 

@@ -44,11 +44,11 @@ int main(int argc, char* argv[]) {
   #endif
 
   // Create GLFW window
-  GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "PNG Editor", nullptr, nullptr);
+  GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "TAP", nullptr, nullptr);
   if (!window) {
     std::cerr << "Failed to create GLFW window" << std::endl;
     glfwTerminate();
-    return 1;
+    return 2;
   }
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1); // Enable vsync
@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cerr << "Failed to initialize GLAD" << std::endl;
     glfwTerminate();
-    return 1;
+    return 3;
   }
 
   // Initialize Dear ImGui
@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
   ImGui_ImplOpenGL3_Init(glsl_version);
 
   // Our state
-  ImVec4 clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  ImVec4 clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f); // Default background color
   std::unique_ptr<Image> image = std::make_unique<Image>();
   std::unique_ptr<Renderer> renderer = std::make_unique<Renderer>();
 
@@ -103,10 +103,10 @@ int main(int argc, char* argv[]) {
     if (image->isLoaded()) renderer->renderImageEditorWindow(window, image);
 
     // Rendering
-    ImGui::Render();
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT);
+    ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(window);
   }

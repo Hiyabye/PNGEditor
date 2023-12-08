@@ -1,6 +1,6 @@
 # CMakeLists.txt
 cmake_minimum_required(VERSION 3.15)
-project(PNGEditor)
+project(TAP)
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -8,23 +8,23 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Compiler flags
-add_executable(PhotoEditor src/main.cpp src/image.cpp src/render.cpp)
-target_compile_features(PhotoEditor PRIVATE cxx_std_17)
+add_executable(TAP src/main.cpp src/image.cpp src/render.cpp)
+target_compile_features(TAP PRIVATE cxx_std_17)
 
 # GLFW
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Build the GLFW example programs" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "Build the GLFW test programs" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build the GLFW documentation" FORCE)
 add_subdirectory(lib/glfw EXCLUDE_FROM_ALL)
-target_link_libraries(PhotoEditor glfw)
+target_link_libraries(TAP glfw)
 
 # GLAD
 add_library(glad lib/glad/src/glad.c)
 target_include_directories(glad PUBLIC lib/glad/include)
-target_link_libraries(PhotoEditor glad ${CMAKE_DL_LIBS})
+target_link_libraries(TAP glad ${CMAKE_DL_LIBS})
 
 # Dear ImGui
-target_compile_definitions(PhotoEditor PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD2)
+target_compile_definitions(TAP PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD2)
 include_directories(lib/imgui)
 include_directories(lib/imgui/backends)
 include_directories(lib/imgui/misc/cpp) # For std::string support
@@ -39,7 +39,7 @@ add_library(imgui
 )
 target_compile_features(imgui PRIVATE cxx_std_17)
 target_include_directories(imgui PUBLIC lib/glfw/include)
-target_link_libraries(PhotoEditor imgui)
+target_link_libraries(TAP imgui)
 
 # imgui-filebrowser
 include_directories(lib/imgui-filebrowser)
@@ -52,13 +52,13 @@ set(PNG_STATIC ON CACHE BOOL "Build libpng static library" FORCE)
 set(PNG_DEBUG OFF CACHE BOOL "Build libpng with debug info" FORCE)
 set(PNGARG OFF CACHE BOOL "Enable libpng arguments" FORCE)
 add_subdirectory(lib/libpng EXCLUDE_FROM_ALL)
-target_include_directories(PhotoEditor PUBLIC
+target_include_directories(TAP PUBLIC
   lib/libpng
   lib/libpng/contrib/libtests
   lib/libpng/contrib/tools
   "${CMAKE_BINARY_DIR}/lib/libpng"
 )
-target_link_libraries(PhotoEditor png_static)
+target_link_libraries(TAP png_static)
 
 # Assets
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})

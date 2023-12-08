@@ -1,4 +1,6 @@
-# PNG Editor
+# TAP
+
+> Touch A Photo
 
 This is a simple PNG editor created as part of a course project for CSE2035 at Sogang University.
 It is developed in C++17 and uses the libpng library for reading and writing PNG files, as well as Dear ImGui for rendering.
@@ -17,20 +19,18 @@ Follow these steps to install the executable on your system:
 1. Clone the repository, including its submodules, by running the following command in your terminal:
 ```bash
 git clone https://github.com/Hiyabye/PNGEditor.git --recurse-submodules
+cd PNGEditor
 ```
 
 2. Build the project with CMake:
 ```bash
-cd PNGEditor
 mkdir build
 cd build
-cmake ..
-make
+cmake .. && make
 ```
 
 ## Acknowledgements
 
- - [ChatGPT](https://chat.openai.com/): All documentation was written using ChatGPT.
  - [gitignore](https://www.toptal.com/developers/gitignore)
  - [LearnOpenGL](https://learnopengl.com/)
  - [glad](https://glad.dav1d.de/)

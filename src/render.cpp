@@ -85,6 +85,7 @@ void Renderer::renderMainMenu(GLFWwindow* window, ImGuiIO& io, std::unique_ptr<I
 
   if (save) {
     if (image->isLoaded()) image->save();
+    else ImGui::OpenPopup("Error: No PNG file loaded");
   }
 
   if (saveAs) {
@@ -137,7 +138,7 @@ void Renderer::renderControlPanel(GLFWwindow* window, std::unique_ptr<Image>& im
   if (ImGui::ImageButton(this->rotateIcon.getTexture(), ImVec2(32, 32))) rotate = !rotate;
   if (rotate && ImGui::SliderInt("Angle", &image->rotateAngle, -180, 180)) update = true;
 
-  // Update the image
+  // Apply the selected functions
   if (update) {
     image->reset();
     if (image->isInvert()) image->invert();
